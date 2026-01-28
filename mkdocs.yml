@@ -1,0 +1,73 @@
+site_name: onnx-cse
+site_description: Common subexpression elimination for ONNX graphs
+site_url: https://docs.internal.quantco.cloud/quantco/onnx-cse/latest
+theme:
+  name: material
+  palette:
+    # Palette toggle for automatic mode
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+  features:
+    - content.action.edit
+    - search.suggest
+    - search.highlight
+    - content.code.annotate
+    - content.code.copy
+    - navigation.tabs
+  icon:
+    repo: fontawesome/brands/github-alt
+    edit: material/pencil
+repo_name: cbourjau/onnx-cse
+repo_url: https://github.com/cbourjau/onnx-cse
+edit_uri: edit/main/docs/
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          # https://mkdocstrings.github.io/python
+          paths: [onnx_cse]
+          options:
+            filters:
+              - "!^_" # Disable all single underscore methods ("protected")
+              - "^__" # re-enable double underscore methods ("dunder")
+            extensions:
+              - griffe_inherited_docstrings:
+                  merge: true
+            allow_inspection: true
+            show_if_no_docstring: true
+            show_signature_annotations: true
+            show_signature: true
+            show_symbol_type_heading: true
+            docstring_style: google
+            docstring_section_style: table
+            separate_signature: true
+            merge_init_into_class: true
+            inherited_members: true
+
+nav:
+  - Welcome: index.md
+  - API Documentation: api-documentation.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.tasklist:
+      custom_checkbox: true

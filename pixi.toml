@@ -1,0 +1,77 @@
+[workspace]
+name = "onnx-cse"
+description = "Common subexpression elimination for ONNX graphs"
+channels = ["conda-forge"]
+platforms = ["osx-arm64", "osx-64", "linux-64", "linux-aarch64", "win-64"]
+
+[tasks]
+postinstall = "pip install --no-build-isolation --no-deps --disable-pip-version-check -e ."
+
+[dependencies]
+python = ">=3.10"
+pip = "*"
+hatchling = "*"
+onnx = ">=1.20.0,<2"
+xxhash = ">=0.8.3,<0.9"
+python-xxhash = ">=3.6.0,<4"
+spox = ">=0.17.0,<0.18"
+pytest = ">=9.0.2,<10"
+typing_extensions = ">=4.15.0,<5"
+[feature.docs.dependencies]
+mkdocs = "*"
+mkdocs-material = "*"
+mkdocstrings = "*"
+mkdocstrings-python = "*"
+griffe-inherited-docstrings = "*"
+[feature.docs.tasks]
+docs = "mkdocs serve"
+docs-build = "mkdocs build --strict"
+
+[feature.test.dependencies]
+pytest = "*"
+pytest-cov = "*"
+mypy = "*"
+[feature.test.tasks]
+test = "pytest"
+test-coverage = "pytest --cov=onnx_cse --cov-report=xml --cov-report=term-missing"
+
+[feature.lint.dependencies]
+pre-commit = "*"
+insert-license-header = "*"
+docformatter = "*"
+ruff = "*"
+prettier = "*"
+nbstripout = "*"
+taplo = "*"
+pre-commit-hooks = "*"
+typos = "*"
+[feature.lint.tasks]
+pre-commit-install = "pre-commit install"
+pre-commit-run = "pre-commit run -a"
+
+[feature.build.dependencies]
+python-build = "*"
+[feature.build.tasks]
+build-wheel = "python -m build --no-isolation ."
+
+[feature.py310.dependencies]
+python = "3.10.*"
+[feature.py311.dependencies]
+python = "3.11.*"
+[feature.py312.dependencies]
+python = "3.12.*"
+[feature.py313.dependencies]
+python = "3.13.*"
+[feature.py314.dependencies]
+python = "3.14.*"
+
+[environments]
+default = ["test"]
+py310 = ["py310", "test"]
+py311 = ["py311", "test"]
+py312 = ["py312", "test"]
+py313 = ["py313", "test"]
+py314 = ["py314", "test"]
+docs = ["docs"]
+lint = { features = ["lint"], no-default-feature = true }
+build = ["build"]
