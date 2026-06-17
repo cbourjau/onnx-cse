@@ -26,6 +26,14 @@ def cse(g: onnx.GraphProto, scope: Scope) -> tuple[onnx.GraphProto, Scope]:
         scope.name_hash[el.name] = input_digest
         scope.hash_norm_name[input_digest] = el.name
 
+    # Add initializers to scope if they were not named in the inputs already
+    for el in g.initializer:
+        if el.name in scope.name_hash:
+            continue
+        input_digest = xxh3_128(el.name).digest()
+        scope.name_hash[el.name] = input_digest
+        scope.hash_norm_name[input_digest] = el.name
+
     # Process nodes
     filtered_nodes = []
     for n in g.node:
