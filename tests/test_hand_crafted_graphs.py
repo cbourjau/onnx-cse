@@ -111,7 +111,7 @@ def graph_with_initializers_as_constants():
     )
 
     int_values_info = onnx.helper.make_tensor_value_info(
-        "int_values", onnx.TensorProto.INT64, [8]
+        "int_values", onnx.TensorProto.INT64, [2]
     )
 
     graph = onnx.helper.make_graph(
@@ -153,4 +153,4 @@ def test_initializers_as_constants():
     g, _ = cse(model.graph, Scope([el.name for el in model.graph.output]))
     onnx.checker.check_graph(g)
 
-    assert count_nodes(model.graph) == n_exp
+    assert count_nodes(g) == n_exp
