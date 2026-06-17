@@ -94,6 +94,44 @@ def redundant_add_in_subgraphs():
     return m, 4
 
 
+def graph_with_initializers_as_constants():
+    string_tensor = onnx.helper.make_tensor(
+        name="strings",
+        data_type=onnx.TensorProto.STRING,
+        dims=[2],
+        vals=[b"1", b"2"],  # type: ignore
+    )
+
+    # Cast node: string_input → int_values (INT64)
+    cast_node = onnx.helper.make_node(
+        "Cast",
+        inputs=["strings"],
+        outputs=["int_values"],
+        to=onnx.TensorProto.INT64,
+    )
+
+    int_values_info = onnx.helper.make_tensor_value_info(
+        "int_values", onnx.TensorProto.INT64, [8]
+    )
+
+    graph = onnx.helper.make_graph(
+        nodes=[cast_node],
+        name="string_cast_graph",
+        inputs=[],
+        outputs=[int_values_info],
+        initializer=[string_tensor],
+    )
+
+    model = onnx.helper.make_model(
+        graph,
+        opset_imports=[onnx.helper.make_opsetid("", 21)],
+    )
+
+    onnx.checker.check_model(model)
+
+    return model, 1
+
+
 def test_redundant_add():
     model, n_exp = redundant_add()
     g, _ = cse(model.graph, Scope([el.name for el in model.graph.output]))
@@ -104,6 +142,14 @@ def test_redundant_add():
 
 def test_redundant_add_in_subgraphs():
     model, n_exp = redundant_add_in_subgraphs()
+    g, _ = cse(model.graph, Scope([el.name for el in model.graph.output]))
+    onnx.checker.check_graph(g)
+
+    assert count_nodes(model.graph) == n_exp
+
+
+def test_initializers_as_constants():
+    model, n_exp = graph_with_initializers_as_constants()
     g, _ = cse(model.graph, Scope([el.name for el in model.graph.output]))
     onnx.checker.check_graph(g)
 

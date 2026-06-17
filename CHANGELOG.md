@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0 (2026-06-17)
+
+**New feature**
+
+- Support initializers that are not also named as inputs.
+
 ## 0.2.0 (2026-06-03)
 
 **Other change**
