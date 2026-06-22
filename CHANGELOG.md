@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1 (2026-06-22)
+
+**Bug fix**
+
+- `onnx-cse` no longer raises an exception when encountering optional inputs.
+
 ## 0.3.0 (2026-06-17)
 
 **New feature**

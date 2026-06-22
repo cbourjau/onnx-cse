@@ -10,6 +10,9 @@ from xxhash import xxh3_128
 
 __all__ = ["eliminate_common_subexpressions"]
 
+# Optional inputs and outputs are denoted with an empty string
+_OPTIONAL_NAME = ""
+
 
 def eliminate_common_subexpressions(model: onnx.ModelProto) -> None:
     """Eliminate common subexpressions inplace."""
@@ -58,8 +61,11 @@ class Scope:
     """Reserved output names."""
 
     def __init__(self, outputs: Sequence[str]):
-        self.name_hash = {}
-        self.hash_norm_name = {}
+        # Any scope always has an optional input denoted by `""` in scope.
+        optional_digest = xxh3_128(_OPTIONAL_NAME).digest()
+
+        self.name_hash = {_OPTIONAL_NAME: optional_digest}
+        self.hash_norm_name = {optional_digest: _OPTIONAL_NAME}
         self.outputs = tuple(outputs)
 
     def process(self, n: onnx.NodeProto) -> list[onnx.NodeProto]:
@@ -74,7 +80,7 @@ class Scope:
         # Add outputs and their hashes to the scope object
         has_unique_output = False
         for i, name in enumerate(n.output):
-            if name == "":
+            if name == _OPTIONAL_NAME:
                 # Don't bother with unused outputs for now
                 # TODO: there is an edge case for optimization where
                 # we have a subsequent subexpression that would use
@@ -110,8 +116,8 @@ class Scope:
         # We may have to update the input names of the node
         updated_names = []
         for name in n.input:
-            if name == "":
-                updated_names.append("")
+            if name == _OPTIONAL_NAME:
+                updated_names.append(_OPTIONAL_NAME)
                 continue
             updated_names.append(self.hash_norm_name[self.name_hash[name]])
 
