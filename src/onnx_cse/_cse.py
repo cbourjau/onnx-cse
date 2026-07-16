@@ -19,14 +19,14 @@ def eliminate_common_subexpressions(model: onnx.ModelProto) -> None:
 
 
 def cse(g: onnx.GraphProto, scope: Scope) -> tuple[onnx.GraphProto, Scope]:
-    # add inputs to scope
+    # add graph inputs to scope
     for el in g.input:
         assert el.name not in scope.name_hash
         input_digest = xxh3_128(el.name).digest()
         scope.name_hash[el.name] = input_digest
         scope.hash_norm_name[input_digest] = el.name
 
-    # Add initializers to scope if they were not named in the inputs already
+    # Add graph initializers to scope if they were not named in the inputs already
     for el in g.initializer:
         if el.name in scope.name_hash:
             continue
