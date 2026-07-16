@@ -24,9 +24,9 @@ _OPTIONAL_NAME = ""
 # ``None`` when the rewrite does not apply to this node.
 Match = Mapping[VarName, NormalizedName] | None
 Rewrite = Callable[[onnx.NodeProto, "Context"], Match]
-ScopeId = tuple[int, ...]
-# Node Id is the combination of scope / graph and the index of a node in that graph
-NodeId = tuple[ScopeId, int]
+# A node is identified by the identity of its proto object, which is stable for
+# the lifetime of a pass (the objects are pinned by ``producers``).
+NodeId = int
 
 # Below this opset the Squeeze/Unsqueeze ``axes`` is an attribute rather than
 # a second input, so the matchers here do not apply.
@@ -38,28 +38,19 @@ class Context:
     """What a rewrite sees: node producers, plus the alias map the driver
     accumulates as rewrites fire."""
 
-    producers: dict[VarName, tuple[NodeId, onnx.NodeProto]]
+    producers: dict[VarName, onnx.NodeProto]
     aliases: dict[VarName, NormalizedName]
 
     depends_on: dict[VarName, set[VarName]]
     """Direct dependencies needed by the node that computes `VarName` (incl captured
     ones)."""
 
-    scope_id: ScopeId
-    n_branches: int = 0
-
     @classmethod
     def main(cls, g: onnx.GraphProto):
-        scope_id = ()
         return cls(
-            producers={
-                outp: ((scope_id, i), n)
-                for i, n in enumerate(g.node)
-                for outp in n.output
-            },
+            producers={outp: n for n in g.node for outp in n.output},
             aliases={},
             depends_on={},
-            scope_id=scope_id,
         )
 
     def resolve(self, name: VarName) -> NormalizedName:
@@ -73,40 +64,20 @@ class Context:
 
     def producer(self, name: VarName) -> onnx.NodeProto | None:
         """The node producing ``name`` (resolved through aliases), if any."""
-        if lookup := self.producers.get(self.resolve(name)):
-            _, node = lookup
-            return node
-        return None
+        return self.producers.get(self.resolve(name))
 
     def producer_id(self, name: VarName) -> NodeId | None:
         """The node-id producing ``name`` (resolved through aliases), if any."""
-        if lookup := self.producers.get(self.resolve(name)):
-            node_id, _node = lookup
-            return node_id
-
+        if node := self.producers.get(self.resolve(name)):
+            return id(node)
         return None
 
     def branch(self, g: onnx.GraphProto) -> Context:
-        scope_id = self.scope_id + (self.n_branches,)
-        produced_in_this_graph = {
-            outp: ((scope_id, i), n) for i, n in enumerate(g.node) for outp in n.output
-        }
-        new_ctx = Context(
+        produced_in_this_graph = {outp: n for n in g.node for outp in n.output}
+        return Context(
             self.producers | produced_in_this_graph,
             self.aliases.copy(),
             self.depends_on.copy(),
-            scope_id=scope_id,
-        )
-
-        self.n_branches += 1
-        return new_ctx
-
-    def copy(self) -> Context:
-        return Context(
-            self.producers.copy(),
-            self.aliases.copy(),
-            self.depends_on.copy(),
-            scope_id=self.scope_id,
         )
 
     def live_nodes(self, var_names: Iterable[VarName]) -> set[NodeId]:
@@ -159,14 +130,15 @@ def _process_graph_recursive(
         changed_, node_deps = _process_node_recursive(n, rewrites, ctx)
         changed |= changed_
         for outp in n.output:
-            ctx.depends_on[outp] = set(n.input) | node_deps
+            # ``node_deps`` already includes the node's (resolved) direct inputs.
+            ctx.depends_on[outp] = node_deps
 
     live_nodes = ctx.live_nodes(el.name for el in g.output)
     live_deps: set[VarName] = set()
     filtered = []
 
-    for i, n in enumerate(g.node):
-        if (ctx.scope_id, i) in live_nodes:
+    for n in g.node:
+        if id(n) in live_nodes:
             filtered.append(n)
             # Full dependency set (direct inputs + subgraph captures), so a value
             # captured inside a live node's subgraph is propagated upward too.
