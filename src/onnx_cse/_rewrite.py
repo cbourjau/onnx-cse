@@ -32,6 +32,12 @@ NodeId = int
 # a second input, so the matchers here do not apply.
 _MIN_OPSET = 13
 
+__all__ = ["apply_peephole_optimizations"]
+
+
+def apply_peephole_optimizations(model: onnx.ModelProto, /):
+    rewrite(model, rewrites=[squeeze_unsqueeze])
+
 
 @dataclass
 class Context:
