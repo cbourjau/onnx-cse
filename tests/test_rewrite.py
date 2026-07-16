@@ -130,6 +130,34 @@ def test_pattern_spans_subgraph_boundary():
         assert (ident.op_type, list(ident.input)) == ("Identity", ["x"])
 
 
+def test_captured_computed_value_kept_when_used_only_in_subgraph():
+    # Regression: the pattern's source is a *computed* value `y = Neg(x)`, and
+    # `y` is referenced only from inside the If branches. When each branch
+    # collapses to `Identity(y)`, the outer `Neg` producing `y` must survive --
+    # the branch's captured dependency has to propagate up to the parent scope.
+    m = onnx.parser.parse_model("""
+        <ir_version: 9, opset_import: ["": 21]>
+        graph (float[N, 1] x, bool cond) => (float[N, 1] out) {
+            y = Neg(x)
+            axes = Constant<value = int64[1] {-1}>()
+            mid = Squeeze(y, axes)
+            out = If (cond) <
+                then_branch = g1 () => (float[N, 1] t) { t = Unsqueeze(mid, axes) },
+                else_branch = g2 () => (float[N, 1] e) { e = Unsqueeze(mid, axes) }
+            >
+        }
+    """)
+    rewrite(m, [squeeze_unsqueeze])
+    onnx.checker.check_model(m, True, True)
+
+    # Dead outer Squeeze + Constant pruned, but Neg (producing captured `y`) stays.
+    assert [n.op_type for n in m.graph.node] == ["Neg", "If"]
+    (if_node,) = [n for n in m.graph.node if n.op_type == "If"]
+    for attr in if_node.attribute:
+        (ident,) = attr.g.node
+        assert (ident.op_type, list(ident.input)) == ("Identity", ["y"])
+
+
 def test_captured_value_kept_when_graph_output():
     # `mid` is also an outer graph output, so the Squeeze must stay; the
     # subgraphs are still optimized to `Identity(x)` independently.

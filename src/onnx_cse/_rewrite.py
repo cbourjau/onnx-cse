@@ -162,30 +162,35 @@ def _process_graph_recursive(
             ctx.depends_on[outp] = set(n.input) | node_deps
 
     live_nodes = ctx.live_nodes(el.name for el in g.output)
-    live_deps = set()
+    live_deps: set[VarName] = set()
     filtered = []
 
     for i, n in enumerate(g.node):
         if (ctx.scope_id, i) in live_nodes:
             filtered.append(n)
-            live_deps.update(n.input)
+            # Full dependency set (direct inputs + subgraph captures), so a value
+            # captured inside a live node's subgraph is propagated upward too.
+            for outp in n.output:
+                live_deps |= ctx.depends_on.get(outp, set())
 
     # Check if outputs have been aliased and if so add an Identity node
     identities = []
     for outp in g.output:
         if outp.name in ctx.aliases:
-            # Output was canonicalized and now needs an identity node
+            # Output was canonicalized and now needs an identity node. Its
+            # (resolved) input must stay alive in the enclosing scope.
+            resolved = ctx.resolve(outp.name)
             identities.append(
                 onnx.helper.make_node(
-                    "Identity", inputs=[ctx.resolve(outp.name)], outputs=[outp.name]
+                    "Identity", inputs=[resolved], outputs=[outp.name]
                 )
             )
+            live_deps.add(resolved)
 
-    if not (filtered + identities):
-        breakpoint()
     g.ClearField("node")
     g.node.extend(filtered + identities)
-    return changed, live_deps ^ produced_in_this_scope
+    # Only names not produced in this scope are captured from an enclosing one.
+    return changed, live_deps - produced_in_this_scope
 
 
 def _process_node_recursive(
@@ -278,50 +283,3 @@ def _is_tensor_neg1(t: onnx.TensorProto) -> bool:
 
 def _is_default_domain(n: onnx.NodeProto) -> bool:
     return n.domain in ("", "ai.onnx")
-
-
-# def _prune_dead_nodes(g: onnx.GraphProto) -> set[VarName]:
-#     """Prune dead nodes in place and return a set of captured variable names."""
-#     def get_node_inputs(n: onnx.NodeProto) -> set[VarName]:
-#         """Get inputs of this node including captured ones."""
-#         res = {inp for inp in n.input}
-#         for attr in n.attribute:
-#             if attr.type == AttributeProto.GRAPH:
-#                 res |= _prune_dead_nodes(attr.g)
-#             elif attr.type == AttributeProto.GRAPHS:
-#                 raise NotImplementedError("GRAPHS attributes are not supported")
-
-#         return res
-
-
-#     produced_by: dict[VarName, tuple[int, onnx.NodeProto]] = {outp: (i, n) for i, n in enumerate(g.node) for outp in n.output}
-
-#     inputs = set()
-#     claimed = set()
-#     stack = [outp.name for outp in g.output]
-#     visited_nodes: set[str] = set()
-#     while stack:
-#         var_name = stack.pop(-1)
-
-#         if var_name not in produced_by:
-#             # Captured or input
-#             inputs.add(var_name)
-#             continue
-
-#         (i, n) = produced_by[var_name]
-
-#         if n.name in visited_nodes:
-#             continue
-
-#         visited_nodes.add(n.name)
-#         claimed.add(i)
-
-#         stack.extend(get_node_inputs(n))
-
-#     captured = inputs - set(el.name for el in g.input)
-
-#     filtered_nodes = [n for i, n in enumerate(g.node) if i in claimed]
-#     g.ClearField("node")
-#     g.node.extend(filtered_nodes)
-
-#     return captured
