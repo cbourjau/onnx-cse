@@ -25,7 +25,7 @@ def cse(g: onnx.GraphProto, scope: Scope) -> tuple[onnx.GraphProto, Scope]:
     # add inputs to scope
     for el in g.input:
         assert el.name not in scope.name_hash
-        input_digest = xxh3_128(el.name).digest()
+        input_digest = xxh3_128(el.name.encode()).digest()
         scope.name_hash[el.name] = input_digest
         scope.hash_norm_name[input_digest] = el.name
 
@@ -33,7 +33,7 @@ def cse(g: onnx.GraphProto, scope: Scope) -> tuple[onnx.GraphProto, Scope]:
     for el in g.initializer:
         if el.name in scope.name_hash:
             continue
-        input_digest = xxh3_128(el.name).digest()
+        input_digest = xxh3_128(el.name.encode()).digest()
         scope.name_hash[el.name] = input_digest
         scope.hash_norm_name[input_digest] = el.name
 
@@ -62,7 +62,7 @@ class Scope:
 
     def __init__(self, outputs: Sequence[str]):
         # Any scope always has an optional input denoted by `""` in scope.
-        optional_digest = xxh3_128(_OPTIONAL_NAME).digest()
+        optional_digest = xxh3_128(_OPTIONAL_NAME.encode()).digest()
 
         self.name_hash = {_OPTIONAL_NAME: optional_digest}
         self.hash_norm_name = {optional_digest: _OPTIONAL_NAME}
@@ -88,7 +88,7 @@ class Scope:
                 continue
             h_copy = h.copy()
             # We care about the output slot rather than its name
-            h_copy.update(str(i))
+            h_copy.update(str(i).encode())
 
             assert name not in self.name_hash  # sanity check
             byte_hash = h_copy.digest()
@@ -163,16 +163,16 @@ def hash_node_inputs_and_attrs(n: onnx.NodeProto, scope: Scope) -> xxh3_128:
     for name in n.input:
         h.update(scope.name_hash[name])
     # node properties
-    h.update(n.op_type)
-    h.update(n.domain)
+    h.update(n.op_type.encode())
+    h.update(n.domain.encode())
     for item in n.metadata_props:
-        h.update(item.key)
-        h.update(item.value)
+        h.update(item.key.encode())
+        h.update(item.value.encode())
 
     for attr in n.attribute:
         if attr.type == onnx.AttributeProto.GRAPH:
             sub_g, sub_scope = cse(attr.g, scope.subscope(attr.g))
-            h.update(attr.name)
+            h.update(attr.name.encode())
             for item in sub_g.output:
                 h.update(sub_scope.name_hash[item.name])
 
