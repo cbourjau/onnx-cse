@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+**Bug fix**
+
+- `onnx-cse` now works with `python-xxhash` 4, which no longer accepts `str` input. Names are
+  encoded as UTF-8 before hashing, which is what `python-xxhash` 3 did implicitly, so digests
+  are unchanged.
+
 ## 0.3.1 (2026-06-22)
 
 **Bug fix**
