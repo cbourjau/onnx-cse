@@ -1,5 +1,8 @@
 name: uv-based tests
-on: [push]
+on:
+  push:
+    branches: [main]
+  pull_request:
 
 # Automatically stop old builds on the same branch/PR
 concurrency:
@@ -17,7 +20,7 @@ jobs:
       - name: "Set up Python"
         uses: actions/setup-python@v6
         with:
-          python-version-file: "pyproject.toml"
+          python-version: "3.14"
 
       - name: "Install uv"
         uses: astral-sh/setup-uv@v7
